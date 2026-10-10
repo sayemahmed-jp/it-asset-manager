@@ -25,3 +25,12 @@ header h1 a { color:#fff; text-decoration:none; }
 .req { background:var(--sakura); color:#fff; font-size:11px; padding:1px 6px; border-radius:4px; }
 .actions { display:flex; justify-content:flex-end; gap:12px; }
 .req { justify-self:start; }
+.alert--error { background:#FDE7EE; color:#B03A5B; }
+.ops { display:flex; gap:6px; align-items:center; }
+.ops form { margin:0; }
+.btn--small { padding:5px 12px; font-size:12px; }
+.btn--danger { background:#B03A5B; }
+.btn--danger:hover { background:#8E2C48; }
+th, td { white-space:nowrap; }
+td:nth-child(3) { white-space:normal; min-width:180px; }
+.badge, .btn { display:inline-block; white-space:nowrap; }

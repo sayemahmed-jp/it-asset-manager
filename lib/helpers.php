@@ -24,16 +24,16 @@ function check_csrf(): void
     }
 }
 
-// 画面遷移後に1回だけ表示するメッセージ
-function flash(?string $msg = null): ?string
+// 画面遷移後に1回だけ表示するメッセージ（success / error）
+function flash(?string $msg = null, string $type = 'success'): ?array
 {
     if ($msg !== null) {
-        $_SESSION['flash'] = $msg;
+        $_SESSION['flash'] = ['msg' => $msg, 'type' => $type];
         return null;
     }
-    $m = $_SESSION['flash'] ?? null;
+    $f = $_SESSION['flash'] ?? null;
     unset($_SESSION['flash']);
-    return $m;
+    return $f;
 }
 
 const CATEGORY_LABELS = [

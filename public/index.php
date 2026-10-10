@@ -18,7 +18,7 @@ $message = flash();
 
   <main>
     <?php if ($message): ?>
-      <p class="alert"><?= h($message) ?></p>
+      <p class="alert alert--<?= h($message['type']) ?>"><?= h($message['msg']) ?></p>
     <?php endif; ?>
 
     <div class="toolbar">
@@ -28,7 +28,7 @@ $message = flash();
 
     <table>
       <thead>
-        <tr><th>管理番号</th><th>種類</th><th>名前</th><th>状態</th><th>ライセンス期限</th></tr>
+        <tr><th>管理番号</th><th>種類</th><th>名前</th><th>状態</th><th>ライセンス期限</th><th>操作</th></tr>
       </thead>
       <tbody>
         <?php foreach ($assets as $a): ?>
@@ -38,6 +38,14 @@ $message = flash();
           <td><?= h($a['name']) ?></td>
           <td><span class="badge badge--<?= h($a['status']) ?>"><?= h(STATUS_LABELS[$a['status']]) ?></span></td>
           <td><?= h($a['license_expiry'] ?? '—') ?></td>
+          <td class="ops">
+            <a class="btn btn--small btn--ghost" href="edit.php?id=<?= (int)$a['id'] ?>">編集</a>
+            <form method="post" action="delete.php" onsubmit="return confirm('この資産を削除しますか？');">
+              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+              <button type="submit" class="btn btn--small btn--danger">削除</button>
+            </form>
+          </td>
         </tr>
         <?php endforeach; ?>
       </tbody>
