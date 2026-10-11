@@ -2,7 +2,35 @@
 require __DIR__ . '/../lib/db.php';
 require __DIR__ . '/../lib/helpers.php';
 
-// 検索条件を受け取る
+// ===== ダッシュボード用の集計 =====
+// 状態ごとの件数（例：['available' => 4, 'loaned' => 1, ...]）
+$counts = db()->query('SELECT status, COUNT(*) FROM assets GROUP BY status')
+              ->fetchAll(PDO::FETCH_KEY_PAIR);
+$total = array_sum($counts);
+
+// ライセンス期限が30日以内、または期限切れのソフトウェア
+$licenseAlerts = db()->query(
+    "SELECT id, asset_code, name, license_expiry,
+            DATEDIFF(license_expiry, CURDATE()) AS days_left
+       FROM assets
+      WHERE license_expiry IS NOT NULL
+        AND status <> 'disposed'
+        AND license_expiry <= CURDATE() + INTERVAL 30 DAY
+      ORDER BY license_expiry"
+)->fetchAll();
+
+// 返却予定日を過ぎても返却されていない貸出
+$overdueLoans = db()->query(
+    'SELECT a.id, a.asset_code, a.name, e.name AS employee_name, l.due_date,
+            DATEDIFF(CURDATE(), l.due_date) AS days_over
+       FROM loans l
+       JOIN assets a ON a.id = l.asset_id
+       JOIN employees e ON e.id = l.employee_id
+      WHERE l.returned_at IS NULL AND l.due_date < CURDATE()
+      ORDER BY l.due_date'
+)->fetchAll();
+
+// ===== 検索 =====
 $q        = trim($_GET['q'] ?? '');
 $category = $_GET['category'] ?? '';
 $status   = $_GET['status'] ?? '';
@@ -43,6 +71,7 @@ $assets = $stmt->fetchAll();
 $isFiltered = (bool)$where;
 $message = flash();
 $today = date('Y-m-d');
+$in30days = date('Y-m-d', strtotime('+30 days'));
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -58,6 +87,50 @@ $today = date('Y-m-d');
   <main>
     <?php if ($message): ?>
       <p class="alert alert--<?= h($message['type']) ?>"><?= h($message['msg']) ?></p>
+    <?php endif; ?>
+
+    <!-- 件数カード -->
+    <section class="stats">
+      <div class="stat">
+        <span class="stat__label">総資産</span>
+        <span class="stat__value"><?= (int)$total ?></span>
+      </div>
+      <?php foreach (['available', 'loaned', 'repair'] as $s): ?>
+        <div class="stat stat--<?= h($s) ?>">
+          <span class="stat__label"><?= h(STATUS_LABELS[$s]) ?></span>
+          <span class="stat__value"><?= (int)($counts[$s] ?? 0) ?></span>
+        </div>
+      <?php endforeach; ?>
+    </section>
+
+    <!-- 要対応アラート -->
+    <?php if ($licenseAlerts || $overdueLoans): ?>
+      <section class="alerts">
+        <h3>⚠ 要対応（<?= count($licenseAlerts) + count($overdueLoans) ?>件）</h3>
+        <ul>
+          <?php foreach ($licenseAlerts as $al): ?>
+            <li>
+              <?php if ($al['days_left'] < 0): ?>
+                <strong>ライセンス期限切れ</strong>：
+              <?php elseif ((int)$al['days_left'] === 0): ?>
+                <strong>本日ライセンス期限</strong>：
+              <?php else: ?>
+                <strong>ライセンス期限まで残り<?= (int)$al['days_left'] ?>日</strong>：
+              <?php endif; ?>
+              <a href="edit.php?id=<?= (int)$al['id'] ?>"><?= h($al['asset_code']) ?> <?= h($al['name']) ?></a>
+              （<?= h($al['license_expiry']) ?>）
+            </li>
+          <?php endforeach; ?>
+
+          <?php foreach ($overdueLoans as $ol): ?>
+            <li>
+              <strong>返却遅れ<?= (int)$ol['days_over'] ?>日</strong>：
+              <a href="history.php?id=<?= (int)$ol['id'] ?>"><?= h($ol['asset_code']) ?> <?= h($ol['name']) ?></a>
+              （<?= h($ol['employee_name']) ?>・返却予定 <?= h($ol['due_date']) ?>）
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      </section>
     <?php endif; ?>
 
     <div class="toolbar">
@@ -109,7 +182,8 @@ $today = date('Y-m-d');
               —
             <?php endif; ?>
           </td>
-          <td><?= h($a['license_expiry'] ?? '—') ?></td>
+          <?php $expiring = $a['license_expiry'] && $a['license_expiry'] <= $in30days; ?>
+          <td class="<?= $expiring ? 'expiring' : '' ?>"><?= h($a['license_expiry'] ?? '—') ?></td>
           <td class="ops">
             <?php if ($a['status'] === 'available'): ?>
               <a class="btn btn--small" href="loan.php?id=<?= (int)$a['id'] ?>">貸出</a>
