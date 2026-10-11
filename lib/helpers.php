@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Tokyo');
 session_start();
 
 // XSS対策：HTMLに出力する前に必ずエスケープする
